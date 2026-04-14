@@ -1,20 +1,18 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+V0.8 (beta)
 
-# Run and deploy your AI Studio app
+An app that runs several games and questionnaires locally on your computer.
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/62e73b4d-a745-4ed0-a4a4-791ab91bd83c
-
-## Run Locally
-
-**Prerequisites:**  Node.js
+More info to come...
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+# Installation and running
+Everything is wrapped in a docker image.
+
+Clone this repo first
+
+1. Download docker desktop
+2. Run the following in terminal from within main folder (the one with "Dockerfile"):
+  - docker compose build --no-cache && docker compose up -d --force-recreate (I know, it is excessive, but if you want to do some changes or need to relaunch it for whatever reason, this ensures no issues)
+  - docker compose down (for when you need to clean up a bit --- but remember to close and remove within docker desktop)
+3. Point your favorite web browser at "http://localhost:3000/" (tested on Chrome)
+4. Check results folder for results
