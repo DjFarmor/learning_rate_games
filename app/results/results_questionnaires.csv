@@ -1,0 +1,4 @@
+nickname,timestamp,questionnaire_id,questionnaire_title,results_json
+testing,2026-04-14T09:02:40.066Z,1,General Demographic Variables,"[{""answer"":""Female""},{""answer"":""18-24""},{""answer"":""Upper-middle""},{""answer"":""Center-left""},{""answer"":""Retired""}]"
+testing,2026-04-14T09:02:50.283Z,2,General Education,"[{""answer"":""Bachelor's degree""},{""answer"":""Engineering""},{""answer"":""Yes""},{""answer"":""13-16 years""}]"
+testing,2026-04-14T09:03:01.433Z,3,Learning Related Questions,"[{""answer"":""Do not know / don't want to answer""},{""answer"":""3-5 hours""},{""answer"":""Very difficult""},{""answer"":""Other""}]"

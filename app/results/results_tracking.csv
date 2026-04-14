@@ -1,0 +1,3 @@
+nickname,attempt,trial,score,time,repetitions,shifts,speed_range,duration_variance,time_limit,circle_size
+testing,1,1,75.02000000009818,3000,2,,,,,2
+testing,1,2,92.31333333348252,3000,2,,,,,2
