@@ -1,0 +1,5 @@
+{
+  "name": "Dot Memory Challenge",
+  "description": "A memory-based game where you recall the positions of dots on a geometric landscape. Features a persistent leaderboard and performance tracking.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app/images:/app/app/images
+      - ./app/questionnaires:/app/app/questionnaires
+      - ./app/results:/app/app/results
+      - ./app/results/login.csv:/app/app/results/login.csv
+      - ./app/results/results_dot_memory.csv:/app/app/results/results_dot_memory.csv
+      - ./app/results/results_finger_tapping.csv:/app/app/results/results_finger_tapping.csv
+      - ./app/results/results_questionnaires.csv:/app/app/results/results_questionnaires.csv
+      - ./app/results/results_path_tracing.csv:/app/app/results/results_path_tracing.csv
+      - ./app/results/results_pattern_matching.csv:/app/app/results/results_pattern_matching.csv
+      - ./app/results/results_prediction.csv:/app/app/results/results_prediction.csv
+      - ./app/results/results_tracking.csv:/app/app/results/results_tracking.csv
+    environment:
+      - NODE_ENV=production
+
+ #   volumes:
+  #    - ./app/images:/app/app/images
+   #   - ./app/questionnaires:/app/app/questionnaires
+    #  - ./app/results:/app/app/results
+     # - ./app/results/login.csv:/app/app/results/login.csv
+#      - ./app/results/results_dot_memory.csv:/app/app/results/results_dot_memory.csv
+#      - ./app/results/results_finger_tapping.csv:/app/app/results/results_finger_tapping.csv
+#      - ./app/results/results_questionnaires.csv:/app/app/results/results_questionnaires.csv
+#      - ./app/results/results_path_tracing.csv:/app/app/results/results_path_tracing.csv
+#      - ./app/results/results_pattern_matching.csv:/app/app/results/results_pattern_matching.csv
+#      - ./app/results/results_prediction.csv:/app/app/results/results_prediction.csv
+#      - ./app/results/results_tracking.csv:/app/app/results/results_tracking.csv
