@@ -1,6 +1,8 @@
-General State
-Please reflect on your general well-being over the past two weeks.
-Over the last 2 weeks, how often have you been bothered by feeling down, depressed, or hopeless?,no,yes,Not at all,Several days,More than half the days,Nearly every day,Do not know / don't want to answer
-Over the last 2 weeks, how often have you been bothered by feeling nervous, anxious, or on edge?,no,yes,Not at all,Several days,More than half the days,Nearly every day,Do not know / don't want to answer
-How optimistic do you feel about your future?,no,yes,Very optimistic,Optimistic,Neutral,Pessimistic,Very pessimistic,Do not know / don't want to answer
-How would you rate your general level of stress?,no,yes,Very low,Low,Moderate,High,Very high,Do not know / don't want to answer
+Current State and Well-being
+Please reflect on your current state.
+How sleepy do you feel right now?,no,yes,Not at all sleepy,Slightly sleepy,Moderately sleepy,Very sleepy,Extremely sleepy
+What is your current level of focus?,no,yes,Very low,Low,Moderate,High,Very high
+How fatigued do you feel right now?,no,yes,Not at all fatigued,Slightly fatigued,Moderately fatigued,Very fatigued,Extremely fatigued
+How motivated do you feel right now?,no,yes,Not at all motivated,Slightly motivated,Moderately motivated,Very motivated,Extremely motivated
+How would you rate your current level of stress?,no,yes,Very low,Low,Moderate,High,Very high
+How optimistic do you feel about your future right now?,no,yes,Very optimistic,Optimistic,Neutral,Pessimistic,Very pessimistic
