@@ -2,12 +2,28 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
 
-const RESULTS_DIR = path.join(process.cwd(), 'results');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const RESULTS_DIR = join(__dirname, 'results');
+const IMAGES_DIR = join(__dirname, 'images');
+const QUESTIONNAIRES_DIR = join(__dirname, 'questionnaires');
+
 if (!fs.existsSync(RESULTS_DIR)) {
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
+}
+
+if (!fs.existsSync(IMAGES_DIR)) {
+  fs.mkdirSync(IMAGES_DIR, { recursive: true });
+}
+
+if (!fs.existsSync(QUESTIONNAIRES_DIR)) {
+  fs.mkdirSync(QUESTIONNAIRES_DIR, { recursive: true });
 }
 
 const DOT_MEMORY_CSV = path.join(RESULTS_DIR, 'results_dot_memory.csv');
@@ -21,32 +37,32 @@ const LOGIN_CSV = path.join(RESULTS_DIR, 'login.csv');
 const GAME_CONFIG: Record<string, { path: string, headers: string }> = {
   'Dot Memory': {
     path: DOT_MEMORY_CSV,
-    headers: 'nickname,attempt,trial,score,time,repetitions,dots,countdown_duration,presentation_time,solution_time\n'
+    headers: 'nickname,date,attempt,trial,score,time,repetitions,dots,countdown_duration,presentation_time,solution_time,trial_time_limit,background_type,grid_size,settings_code\n'
   },
   'Path Tracing': {
     path: PATH_TRACING_CSV,
-    headers: 'nickname,attempt,trial,score,time,repetitions,drift_force,circle_size,time_limit\n'
+    headers: 'nickname,date,attempt,trial,score,time,repetitions,drift_force,circle_size,time_limit,settings_code\n'
   },
   'Tracking': {
     path: TRACKING_CSV,
-    headers: 'nickname,attempt,trial,score,time,repetitions,shifts,speed_range,duration_variance,time_limit,circle_size\n'
+    headers: 'nickname,date,attempt,trial,score,time,repetitions,avg_drift_speed,drift_variance,circle_size,trial_time,settings_code\n'
   },
   'Finger Tapping': {
     path: FINGER_TAPPING_CSV,
-    headers: 'nickname,attempt,trial,score,time,repetitions,time_limit,sequence_length\n'
+    headers: 'nickname,date,attempt,trial,score,time,repetitions,time_limit,sequence_length,settings_code\n'
   },
   'Prediction': {
     path: PREDICTION_CSV,
-    headers: 'nickname,attempt,trial,score,time,time_limit,reliability_set,raw_score\n'
+    headers: 'nickname,date,attempt,trial,score,time,time_limit,reliability_set,raw_score,settings_code\n'
   },
   'Pattern Matching': {
     path: PATTERN_MATCHING_CSV,
-    headers: 'nickname,attempt,trial,score,time,total_trials,shifts_per_trial,streak_range,total_correct,total_wrong\n'
+    headers: 'nickname,date,attempt,trial,score,time,total_trials,shifts_per_trial,streak_range,total_correct,total_wrong,settings_code\n'
   }
 };
 
 const QUESTIONNAIRE_RESULTS_PATH = path.join(RESULTS_DIR, 'results_questionnaires.csv');
-const QUESTIONNAIRE_RESULTS_HEADERS = 'nickname,timestamp,questionnaire_id,questionnaire_title,results_json\n';
+const QUESTIONNAIRE_RESULTS_HEADERS = 'nickname,date,timestamp,questionnaire_id,questionnaire_title,results_json\n';
 
 const LOGIN_HEADERS = 'nickname,password\n';
 
@@ -117,31 +133,22 @@ async function startServer() {
   app.use(express.json());
 
   // Serve the images folder
-  const imagesPath = path.join(process.cwd(), 'images');
-  if (!fs.existsSync(imagesPath)) {
-    fs.mkdirSync(imagesPath, { recursive: true });
-  }
-  app.use('/images', express.static(imagesPath));
-
-  const questionnairesPath = path.join(process.cwd(), 'questionnaires');
-  if (!fs.existsSync(questionnairesPath)) {
-    fs.mkdirSync(questionnairesPath, { recursive: true });
-  }
+  app.use('/images', express.static(IMAGES_DIR));
 
   // API Routes
   app.get('/api/questionnaires', (req, res) => {
     const { nickname } = req.query;
     try {
-      const files = fs.readdirSync(questionnairesPath);
+      const files = fs.readdirSync(QUESTIONNAIRES_DIR);
       const questionnaires = files
         .filter(f => f.startsWith('quest_') && f.endsWith('.csv'))
         .map(f => {
           const id = f.replace('quest_', '').replace('.csv', '');
-          const content = fs.readFileSync(path.join(questionnairesPath, f), 'utf-8').split('\n');
+          const content = fs.readFileSync(path.join(QUESTIONNAIRES_DIR, f), 'utf-8').split('\n');
           
           let completed = false;
           if (nickname) {
-            const resultsPath = path.join(questionnairesPath, `results_quest_${id}.csv`);
+            const resultsPath = path.join(QUESTIONNAIRES_DIR, `results_quest_${id}.csv`);
             if (fs.existsSync(resultsPath)) {
               const resultsContent = fs.readFileSync(resultsPath, 'utf-8');
               const records = parse(resultsContent, { columns: true, skip_empty_lines: true, relax_column_count: true });
@@ -164,7 +171,7 @@ async function startServer() {
 
   app.get('/api/questionnaire/:id', (req, res) => {
     const { id } = req.params;
-    const filePath = path.join(questionnairesPath, `quest_${id}.csv`);
+    const filePath = path.join(QUESTIONNAIRES_DIR, `quest_${id}.csv`);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Questionnaire not found' });
@@ -196,27 +203,32 @@ async function startServer() {
   app.post('/api/questionnaire/:id/results', (req, res) => {
     const { id } = req.params;
     const { nickname, results } = req.body;
-    const resultsPath = path.join(questionnairesPath, `results_quest_${id}.csv`);
+    const resultsPath = path.join(QUESTIONNAIRES_DIR, `results_quest_${id}.csv`);
 
     try {
       // Get title for the record
       let title = id;
-      const filePath = path.join(questionnairesPath, `quest_${id}.csv`);
+      const filePath = path.join(QUESTIONNAIRES_DIR, `quest_${id}.csv`);
       if (fs.existsSync(filePath)) {
         const content = fs.readFileSync(filePath, 'utf-8').split('\n');
         title = content[0].trim();
       }
 
+      const now = new Date();
+      const dateTag = now.getFullYear().toString() + 
+                      (now.getMonth() + 1).toString().padStart(2, '0') + 
+                      now.getDate().toString().padStart(2, '0');
+
       // 1. Save to individual questionnaire result file (legacy/detailed)
       if (!fs.existsSync(resultsPath)) {
-        const headers = ['nickname', 'timestamp', 'questionnaire_id', 'questionnaire_title', ...results.map((r: any, i: number) => `q${i+1}_answer`)];
+        const headers = ['nickname', 'date', 'timestamp', 'questionnaire_id', 'questionnaire_title', ...results.map((r: any, i: number) => `q${i+1}_answer`)];
         fs.writeFileSync(resultsPath, stringify([headers]));
       }
-      const row = [nickname, new Date().toISOString(), id, title, ...results.map((r: any) => r.answer)];
+      const row = [nickname, dateTag, now.getTime(), id, title, ...results.map((r: any) => r.answer)];
       fs.appendFileSync(resultsPath, stringify([row]));
 
       // 2. Also save to the master questionnaire results file
-      const masterRow = [nickname, new Date().toISOString(), id, title, JSON.stringify(results)];
+      const masterRow = [nickname, dateTag, now.getTime(), id, title, JSON.stringify(results)];
       fs.appendFileSync(QUESTIONNAIRE_RESULTS_PATH, stringify([masterRow]));
 
       res.json({ success: true });
@@ -426,7 +438,7 @@ async function startServer() {
       repetitions, dots, countdown_duration, presentation_time, solution_time,
       drift_force, circle_size, time_limit, shifts, speed_range, duration_variance,
       sequence_length, reliability_set, raw_score, total_trials, shifts_per_trial,
-      streak_range, total_correct, total_wrong
+      streak_range, streak_target_base, total_correct, total_wrong
     } = req.body;
     
     const config = GAME_CONFIG[game];
@@ -435,19 +447,47 @@ async function startServer() {
     }
 
     try {
+      const now = new Date();
+      const dateTag = now.getFullYear().toString() + 
+                      (now.getMonth() + 1).toString().padStart(2, '0') + 
+                      now.getDate().toString().padStart(2, '0');
+
       let row: any[] = [];
+      let settingsCode = '';
+
       if (game === 'Dot Memory') {
-        row = [nickname, attempt, trial, score, time, repetitions, dots, countdown_duration, presentation_time, solution_time];
+        const cd = (countdown_duration || 3) * 1000;
+        const pt = (presentation_time || 0) * 1000;
+        const st = (solution_time || 0) * 1000;
+        const ttl = (req.body.trial_time_limit || 0) * 1000;
+        const bg = req.body.background_type || 'PICSUM';
+        const gs = req.body.grid_size || 0;
+        settingsCode = `rep${repetitions}dot${dots}cnt${cd}pre${pt}sol${st}ttl${ttl}bg${bg}gs${gs}`;
+        row = [nickname, dateTag, attempt, trial, score, time, repetitions, dots, cd, pt, st, ttl, bg, gs, settingsCode];
       } else if (game === 'Path Tracing') {
-        row = [nickname, attempt, trial, score, time, repetitions, drift_force, circle_size, time_limit];
+        const tl = (time_limit || 0) * 1000;
+        settingsCode = `rep${repetitions}dri${drift_force}cir${circle_size}tim${tl}`;
+        row = [nickname, dateTag, attempt, trial, score, time, repetitions, drift_force, circle_size, tl, settingsCode];
       } else if (game === 'Tracking') {
-        row = [nickname, attempt, trial, score, time, repetitions, shifts, speed_range, duration_variance, time_limit, circle_size];
+        const ads = req.body.avg_drift_speed || 0;
+        const dv = req.body.drift_variance || 0;
+        const cs = circle_size || 0;
+        const tt = (req.body.trial_time || 0) * 1000;
+        settingsCode = `rep${repetitions}ads${ads}dv${dv}cs${cs}tt${tt}`;
+        row = [nickname, dateTag, attempt, trial, score, time, repetitions, ads, dv, cs, tt, settingsCode];
       } else if (game === 'Finger Tapping') {
-        row = [nickname, attempt, trial, score, time, repetitions, time_limit, sequence_length];
+        const tl = (time_limit || 0) * 1000;
+        settingsCode = `rep${repetitions}tim${tl}seq${sequence_length}`;
+        row = [nickname, dateTag, attempt, trial, score, time, repetitions, tl, sequence_length, settingsCode];
       } else if (game === 'Prediction') {
-        row = [nickname, attempt, trial, score, time, time_limit, reliability_set, raw_score];
+        const tl = (time_limit || 0) * 1000;
+        const gtl = (req.body.guess_time_limit || 1.5) * 1000;
+        settingsCode = `rep${req.body.total_trials}tim${tl}gue${gtl}rel${reliability_set}`;
+        row = [nickname, dateTag, attempt, trial, score, time, tl, reliability_set, raw_score, settingsCode];
       } else if (game === 'Pattern Matching') {
-        row = [nickname, attempt, trial, score, time, total_trials, shifts_per_trial, streak_range, total_correct, total_wrong];
+        const gtl = (req.body.guess_time_limit || 3) * 1000;
+        settingsCode = `tri${total_trials}shi${shifts_per_trial}str${streak_target_base || streak_range}gue${gtl}`;
+        row = [nickname, dateTag, attempt, trial, score, time, total_trials, shifts_per_trial, streak_target_base || streak_range, total_correct, total_wrong, settingsCode];
       }
 
       fs.appendFileSync(config.path, stringify([row]));
