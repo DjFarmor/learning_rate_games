@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogOut, ArrowRight, Play, RefreshCw, MousePointer2, Keyboard, Brain, ListTodo, Info } from 'lucide-react';
+import { LogOut, ArrowRight, Play, RefreshCw, MousePointer2, Keyboard, Brain, ListTodo, Info, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Header } from '../components/Header';
 import { Dot, GameState } from '../types/game';
@@ -22,14 +22,15 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
   onExit,
   saveResult
 }) => {
-  const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'PRE_START' | 'COUNTDOWN' | 'SHOW_DOTS' | 'PLACE_DOTS' | 'SHOW_SOLUTION' | 'SHOW_SOLUTION_HIDE_DOTS'>('SETTINGS');
+  const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'PRE_START' | 'COUNTDOWN' | 'SHOW_DOTS' | 'PLACE_DOTS' | 'FINISHING' | 'SHOW_SOLUTION' | 'SHOW_SOLUTION_HIDE_DOTS'>('SETTINGS');
   const [trial, setTrial] = useState(1);
   const [maxTrials, setMaxTrials] = useState(10);
   const [dotCount, setDotCount] = useState(6);
   const [presentationTime, setPresentationTime] = useState(3);
   const [solutionTime, setSolutionTime] = useState(3);
   const [dotMemoryGridSize, setDotMemoryGridSize] = useState(0);
-  const [useUniformBackground, setUseUniformBackground] = useState(false);
+  const [backgroundType, setBackgroundType] = useState<'PICSUM' | 'GREY' | 'LOCAL'>('LOCAL');
+  const [trialTimeLimit, setTrialTimeLimit] = useState(8);
   
   const [dots, setDots] = useState<Dot[]>([]);
   const [placedDots, setPlacedDots] = useState<Dot[]>([]);
@@ -43,8 +44,11 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
   const [showTryAgain, setShowTryAgain] = useState(false);
   const [showDotMemoryInstructions, setShowDotMemoryInstructions] = useState(true);
   const [startTime, setStartTime] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(8);
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const placedDotsRef = useRef<Dot[]>([]);
+  const isFinishingRef = useRef(false);
 
   const calculateGreedyAvgDist = useCallback((placed: Dot[], target: Dot[]) => {
     if (placed.length === 0 || target.length === 0) return 100;
@@ -95,6 +99,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
     }
     setDots(newDots);
     setPlacedDots([]);
+    placedDotsRef.current = [];
 
     // Calculate random baseline
     const randomAverages: number[] = [];
@@ -109,14 +114,37 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
   }, [dotCount, dotMemoryGridSize, calculateGreedyAvgDist]);
 
   const startRound = () => {
+    isFinishingRef.current = false;
     setGameState('COUNTDOWN');
     setCountdown(3);
     setPlacedDots([]);
+    setTimeLeft(trialTimeLimit);
   };
 
-  const finishRound = async () => {
+  const finishRound = useCallback(async (isTimeout = false) => {
+    if (isFinishingRef.current) return;
+    isFinishingRef.current = true;
+    setGameState('FINISHING');
+
     const duration = Date.now() - startTime;
-    const actualAvgDist = calculateGreedyAvgDist(placedDots, dots);
+    
+    let finalPlacedDots = [...placedDotsRef.current];
+    if (isTimeout && finalPlacedDots.length < dotCount) {
+      // Place remaining dots randomly
+      const remainingCount = dotCount - finalPlacedDots.length;
+      const randomDots: Dot[] = [];
+      for (let i = 0; i < remainingCount; i++) {
+        randomDots.push({
+          x: 10 + Math.random() * 80,
+          y: 10 + Math.random() * 80
+        });
+      }
+      finalPlacedDots = [...finalPlacedDots, ...randomDots];
+      setPlacedDots(finalPlacedDots);
+      placedDotsRef.current = finalPlacedDots;
+    }
+
+    const actualAvgDist = calculateGreedyAvgDist(finalPlacedDots, dots);
     const roundScore = Math.max(0, (1 - (actualAvgDist / avgRandomDist)) * 100);
     
     setLastRoundScore(roundScore);
@@ -132,7 +160,10 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
       dots: dotCount,
       countdown_duration: 3,
       presentation_time: presentationTime,
-      solution_time: solutionTime
+      solution_time: solutionTime,
+      trial_time_limit: trialTimeLimit,
+      background_type: backgroundType,
+      grid_size: dotMemoryGridSize
     });
 
     setTimeout(() => {
@@ -142,13 +173,16 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
         if (trial < maxTrials) {
           setTrial(prev => prev + 1);
           setGameState('PRE_START');
+          setCountdown(3);
           setPlacedDots([]);
+          placedDotsRef.current = [];
+          setTimeLeft(trialTimeLimit);
         } else {
           onFinish([...sessionScores, roundScore]);
         }
       }, solutionTime * 1000);
     }, 2000);
-  };
+  }, [startTime, dotCount, dots, avgRandomDist, saveResult, currentGameAttemptId, trial, maxTrials, presentationTime, solutionTime, trialTimeLimit, backgroundType, dotMemoryGridSize, sessionScores, onFinish, calculateGreedyAvgDist]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (gameState !== 'PLACE_DOTS' || placedDots.length >= dotCount) return;
@@ -161,6 +195,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
 
     const newPlaced = [...placedDots, { x, y }];
     setPlacedDots(newPlaced);
+    placedDotsRef.current = newPlaced;
 
     if (newPlaced.length === dotCount) {
       finishRound();
@@ -177,6 +212,22 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
       }
     }
   }, [gameState, countdown]);
+
+  useEffect(() => {
+    if (gameState === 'PLACE_DOTS' && trialTimeLimit > 0) {
+      const timer = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const remaining = Math.max(0, trialTimeLimit - elapsed);
+        setTimeLeft(remaining);
+        
+        if (remaining <= 0) {
+          clearInterval(timer);
+          finishRound(true);
+        }
+      }, 50);
+      return () => clearInterval(timer);
+    }
+  }, [gameState, startTime, trialTimeLimit, finishRound]);
 
   useEffect(() => {
     if (gameState === 'SHOW_DOTS') {
@@ -203,7 +254,15 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
         exit={{ opacity: 0, y: -20 }}
         className="max-w-2xl mx-auto pt-20 px-6 pb-20"
       >
-        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12 relative">
+          <button 
+            onClick={onExit}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 font-bold uppercase tracking-widest text-xs group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Exit to Menu
+          </button>
+
           <div className="text-center">
             <h2 className="text-4xl font-black mb-4 tracking-tighter">DOT MEMORY SETTINGS</h2>
             <p className="text-zinc-400">Configure the difficulty of the task.</p>
@@ -292,6 +351,46 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
                   ))}
                 </div>
               </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Background</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['PICSUM', 'GREY', 'LOCAL'] as const).map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setBackgroundType(type)}
+                      className={cn(
+                        "py-3 rounded-xl font-bold transition-all border text-[10px]",
+                        backgroundType === type 
+                          ? "bg-emerald-600 border-emerald-500 text-white" 
+                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      )}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Trial Time Limit</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[0, 4, 6, 8, 10].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setTrialTimeLimit(n)}
+                      className={cn(
+                        "py-3 rounded-xl font-bold transition-all border text-[10px]",
+                        trialTimeLimit === n 
+                          ? "bg-emerald-600 border-emerald-500 text-white" 
+                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      )}
+                    >
+                      {n === 0 ? 'Off' : `${n}s`}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -323,6 +422,10 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
           <h2 className="text-6xl font-black mb-8 tracking-tighter">DOT MEMORY</h2>
           <div className="space-y-6 text-xl text-zinc-400 mb-12">
             <p>A set of dots will appear on the screen for <span className="text-white font-bold">{presentationTime} seconds</span>.</p>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-2xl">
+              <p className="text-emerald-400 font-bold mb-2 text-sm uppercase tracking-wider">Note:</p>
+              <p>The <span className="text-white font-bold uppercase">pattern remains fixed</span> across trials. Your task is to <span className="text-white font-bold uppercase">learn this pattern</span> over time through multiple repetitions.</p>
+            </div>
             <p>Memorize their positions as accurately as possible.</p>
             <p>After they disappear, click on the screen where you think the dots were.</p>
             <p>Your score is based on how close your clicks are to the true locations.</p>
@@ -354,9 +457,9 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
         currentTrial={trial}
         totalTrials={maxTrials}
         bestScore={bestScore}
-        timeDisplay={gameState === 'PRE_START' ? 'Ready' : (gameState === 'COUNTDOWN' ? countdown.toString() : (gameState === 'SHOW_DOTS' ? presentationTime.toString() + 's' : (gameState === 'SHOW_SOLUTION' ? 'Solution' : 'Place Dots')))}
-        instructions={gameState === 'SHOW_DOTS' ? 'MEMORIZE THE DOTS' : (gameState === 'PLACE_DOTS' ? `${dotCount - placedDots.length} dots left to place` : (gameState === 'PRE_START' ? 'Press any key to start' : (gameState === 'SHOW_SOLUTION' ? 'True Locations' : '')))}
-        showInstructions={showDotMemoryInstructions && (gameState === 'SHOW_DOTS' || gameState === 'PLACE_DOTS')}
+        timeDisplay={gameState === 'PRE_START' ? 'Ready' : (gameState === 'COUNTDOWN' ? countdown.toString() : (gameState === 'SHOW_DOTS' ? presentationTime.toString() + 's' : (gameState === 'SHOW_SOLUTION' || gameState === 'FINISHING' ? 'Solution' : 'Place Dots')))}
+        instructions={gameState === 'SHOW_DOTS' ? 'MEMORIZE THE DOTS' : (gameState === 'PLACE_DOTS' ? `${dotCount - placedDots.length} dots left to place` : (gameState === 'PRE_START' ? 'Press any key to start' : (gameState === 'SHOW_SOLUTION' || gameState === 'FINISHING' ? 'True Locations' : '')))}
+        showInstructions={showDotMemoryInstructions && (gameState === 'SHOW_DOTS' || gameState === 'PLACE_DOTS' || gameState === 'FINISHING')}
         onExit={onExit}
       />
 
@@ -367,15 +470,26 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
       >
         <div 
           className={cn(
-            "absolute inset-0",
-            useUniformBackground ? "bg-zinc-800" : "opacity-40 grayscale"
+            "absolute inset-0 transition-all duration-700",
+            backgroundType === 'GREY' ? "bg-zinc-800" : (backgroundType === 'LOCAL' ? "bg-zinc-900" : "opacity-40 grayscale")
           )}
-          style={!useUniformBackground ? { 
-            backgroundImage: `url(${bgImage})`,
+          style={backgroundType !== 'GREY' ? { 
+            backgroundImage: `url(${backgroundType === 'LOCAL' ? '/images/chaotic_pattern.png' : bgImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           } : {}}
         />
+        
+        {gameState === 'PLACE_DOTS' && trialTimeLimit > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-2 bg-zinc-900/50 z-50">
+            <motion.div 
+              className="h-full bg-emerald-500"
+              initial={{ width: '100%' }}
+              animate={{ width: `${(timeLeft / trialTimeLimit) * 100}%` }}
+              transition={{ duration: 0.1, ease: 'linear' }}
+            />
+          </div>
+        )}
         
         {dotMemoryGridSize > 0 && (
           <div className="absolute inset-0 pointer-events-none opacity-80">
@@ -421,7 +535,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
           </motion.div>
         )}
 
-        {(gameState === 'SHOW_DOTS' || gameState === 'SHOW_SOLUTION') && (
+        {(gameState === 'SHOW_DOTS' || gameState === 'SHOW_SOLUTION' || gameState === 'FINISHING') && (
           dots.map((dot, i) => (
             <motion.div
               key={`orig-${i}`}
@@ -433,7 +547,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
           ))
         )}
 
-        {(gameState === 'PLACE_DOTS' || gameState === 'SHOW_SOLUTION') && (
+        {(gameState === 'PLACE_DOTS' || gameState === 'SHOW_SOLUTION' || gameState === 'FINISHING') && (
           placedDots.map((dot, i) => (
             <motion.div
               key={`placed-${i}`}
@@ -441,7 +555,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
               animate={{ scale: 1 }}
               className={cn(
                 "absolute w-4 h-4 rounded-full -translate-x-1/2 -translate-y-1/2 border-2",
-                gameState === 'SHOW_SOLUTION' ? "border-emerald-500 bg-emerald-500/20" : "border-white bg-white/10"
+                (gameState === 'SHOW_SOLUTION' || gameState === 'FINISHING') ? "border-emerald-500 bg-emerald-500/20" : "border-white bg-white/10"
               )}
               style={{ left: `${dot.x}%`, top: `${dot.y}%` }}
             />

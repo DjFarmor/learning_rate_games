@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, LogOut, Info } from 'lucide-react';
+import { ArrowRight, LogOut, Info, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Header } from '../components/Header';
 import { Dot } from '../types/game';
@@ -25,7 +25,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
   const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'GAME'>('SETTINGS');
   const [trial, setTrial] = useState(1);
   const [pathTracingRepeats, setPathTracingRepeats] = useState(10);
-  const [driftForce, setDriftForce] = useState(2); // cm/s
+  const [driftForce, setDriftForce] = useState(3); // cm/s
   const [circleSize, setCircleSize] = useState(1); // cm
   const [timeLimit, setTimeLimit] = useState(5); // Trial time limit in seconds
   
@@ -43,6 +43,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
   const [timeRed, setTimeRed] = useState(0);
   const [bgImage, setBgImage] = useState('');
   const [sessionSeed] = useState(() => Math.random().toString(36).substring(7));
+  const [sessionPhase] = useState(() => Math.random() * Math.PI * 2);
   const [sessionScores, setSessionScores] = useState<number[]>([]);
   const [showRoundScore, setShowRoundScore] = useState(false);
   const [lastRoundScore, setLastRoundScore] = useState(0);
@@ -53,7 +54,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
 
   const lastMousePos = useRef<Dot>({ x: 0, y: 0 });
   const driftOffsetRef = useRef<Dot>({ x: 0, y: 0 });
-  const driftSequenceRef = useRef<{x: number, y: number, duration: number}[]>([]);
+  const driftSequenceRef = useRef<{x: number, y: number, duration: number, forceMult: number}[]>([]);
   const sessionScoresRef = useRef<number[]>([]);
   const visitedPointsRef = useRef<Set<number>>(new Set());
   const timeBlueRef = useRef<number>(0);
@@ -66,57 +67,32 @@ export const PathTracing: React.FC<PathTracingProps> = ({
   const driftTimeRef = useRef(0);
 
   const generatePath = useCallback(() => {
-    const controlPoints: Dot[] = [];
-    const segments = 5;
-    let currentX = 10;
-    let currentY = 50;
-    controlPoints.push({ x: currentX, y: currentY });
-
-    for (let i = 0; i < segments; i++) {
-      currentX += 80 / segments;
-      currentY += (Math.random() - 0.5) * 60;
-      currentY = Math.max(10, Math.min(90, currentY));
-      controlPoints.push({ x: currentX, y: currentY });
-    }
-
     const curve: Dot[] = [];
-    const stepsPerSegment = 50;
-    
-    for (let i = 0; i < controlPoints.length - 1; i++) {
-      const p0 = controlPoints[Math.max(0, i - 1)];
-      const p1 = controlPoints[i];
-      const p2 = controlPoints[i + 1];
-      const p3 = controlPoints[Math.min(controlPoints.length - 1, i + 2)];
+    const steps = 200;
+    const startX = 10;
+    const endX = 90;
+    const centerY = 50;
+    const amplitude = 30;
 
-      for (let t = 0; t < 1; t += 1 / stepsPerSegment) {
-        const x = 0.5 * (
-          (2 * p1.x) +
-          (-p0.x + p2.x) * t +
-          (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t * t +
-          (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t * t * t
-        );
-        const y = 0.5 * (
-          (2 * p1.y) +
-          (-p0.y + p2.y) * t +
-          (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t * t +
-          (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t * t * t
-        );
-        curve.push({ x, y });
-      }
+    for (let i = 0; i <= steps; i++) {
+      const progress = i / steps;
+      const x = startX + progress * (endX - startX);
+      const y = centerY + amplitude * Math.sin(progress * Math.PI * 2 + sessionPhase);
+      curve.push({ x, y });
     }
-    curve.push(controlPoints[controlPoints.length - 1]);
 
-    // Also generate drift sequence here to ensure it's ready
+    // Drift sequence: shifts every 1.5s +/- 0.5s
     const sequence = [];
     for (let i = 0; i < 100; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const duration = 0.7 + Math.random() * 0.6;
-      sequence.push({ x: Math.cos(angle), y: Math.sin(angle), duration });
+      const duration = 1.0 + Math.random() * 1.0; // 1.5 +/- 0.5
+      const forceMult = 0.8 + Math.random() * 0.4; // +/- 20%
+      sequence.push({ x: Math.cos(angle), y: Math.sin(angle), duration, forceMult });
     }
     driftSequenceRef.current = sequence;
 
     return curve;
-  }, []);
+  }, [sessionPhase]);
 
   const finishRound = async () => {
     if (isFinishingRef.current) return;
@@ -139,7 +115,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
       attempt: currentGameAttemptId,
       trial,
       score: roundScore,
-      time: totalTimeElapsed,
+      time: totalTimeElapsed * 1000,
       repetitions: pathTracingRepeats,
       drift_force: driftForce,
       circle_size: circleSize,
@@ -271,8 +247,8 @@ export const PathTracing: React.FC<PathTracingProps> = ({
         driftTimeRef.current = 0;
       }
 
-      const driftPx = driftForce * CM_TO_PERCENT;
       const driftDir = sequence[driftIndexRef.current % sequence.length];
+      const driftPx = driftForce * CM_TO_PERCENT * driftDir.forceMult;
       
       driftOffsetRef.current = {
         x: driftOffsetRef.current.x + driftDir.x * driftPx * dt,
@@ -363,7 +339,15 @@ export const PathTracing: React.FC<PathTracingProps> = ({
         exit={{ opacity: 0, y: -20 }}
         className="max-w-2xl mx-auto pt-20 px-6 pb-20"
       >
-        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12 relative">
+          <button 
+            onClick={onExit}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 font-bold uppercase tracking-widest text-xs group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Exit to Menu
+          </button>
+
           <div className="text-center">
             <h2 className="text-4xl font-black mb-4 tracking-tighter">PATH TRACING SETTINGS</h2>
             <p className="text-zinc-400">Configure the difficulty of the task.</p>
@@ -393,7 +377,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
             <div className="space-y-4">
               <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Drift Force (cm/s)</label>
               <div className="grid grid-cols-5 gap-2">
-                {[1, 2, 4, 6, 10].map(n => (
+                {[1, 2, 3, 4, 5].map(n => (
                   <button
                     key={n}
                     onClick={() => setDriftForce(n)}
@@ -484,10 +468,10 @@ export const PathTracing: React.FC<PathTracingProps> = ({
           <h2 className="text-6xl font-black mb-8 tracking-tighter">PATH TRACING</h2>
           <div className="space-y-6 text-xl text-zinc-400 mb-12 text-left">
             <p>Trace the path from left to right as accurately as possible.</p>
-            <p>The path is <span className="text-white font-bold uppercase">Visible</span> during the game.</p>
-            <p>A constant <span className="text-blue-500 font-bold uppercase">Drift</span> will try to pull your cursor away.</p>
-            <p>The circle turns <span className="text-blue-500 font-bold uppercase">Blue</span> when on path and <span className="text-red-500 font-bold uppercase">Red</span> when off.</p>
-            <p>Click the <span className="text-white font-bold uppercase">Start Circle</span> on the left to begin.</p>
+            <p>The ball is under different <span className="text-blue-500 font-bold uppercase">drifts</span> that shift over time, but remain <span className="text-white font-bold tracking-tight">identical across trials</span>.</p>
+            <p>Coloring the path <span className="text-white font-bold tracking-tight">does not need to be continuous</span>—you can revisit gaps or skip segments if needed.</p>
+            <p>Your score depends on the <span className="text-emerald-500 font-bold tracking-tight">total area colored</span> and the <span className="text-blue-500 font-bold tracking-tight">time spent staying on the path</span>.</p>
+            <p>Click the green <span className="text-emerald-500 font-bold uppercase font-black px-2 py-1 bg-emerald-500/10 rounded">Start Circle</span> to begin.</p>
           </div>
           <button
             onClick={() => startRound()}
@@ -597,10 +581,14 @@ export const PathTracing: React.FC<PathTracingProps> = ({
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute w-12 h-12 border-4 border-emerald-500 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
-            style={{ left: `${pathPoints[0]?.x}%`, top: `${pathPoints[0]?.y}%` }}
+            className="absolute border-4 border-emerald-500 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center aspect-square"
+            style={{ 
+              left: `${pathPoints[0]?.x}%`, 
+              top: `${pathPoints[0]?.y}%`,
+              width: `${circleSize * CM_TO_PERCENT}%`
+            }}
           >
-            <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-1 bg-emerald-500 rounded-full" />
           </motion.div>
         )}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, LogOut, Info, Clock } from 'lucide-react';
+import { ArrowRight, LogOut, Info, Clock, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Header } from '../components/Header';
 
@@ -24,9 +24,9 @@ export const Prediction: React.FC<PredictionProps> = ({
   const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'WAITING' | 'COUNTDOWN' | 'GAME'>('SETTINGS');
   const [trial, setTrial] = useState(1);
   const [totalTrials, setTotalTrials] = useState(10);
-  const [reliabilitySet, setReliabilitySet] = useState<'a' | 'b' | 'c' | 'd' | 'random'>('random');
-  const [trialDuration, setTrialDuration] = useState(20);
-  const [guessTimeLimit, setGuessTimeLimit] = useState(1.5);
+  const [reliabilitySet, setReliabilitySet] = useState<'a' | 'b' | 'c' | 'd' | 'random'>('b');
+  const [trialDuration, setTrialDuration] = useState(30);
+  const [guessTimeLimit, setGuessTimeLimit] = useState(2.0);
   
   const [faces, setFaces] = useState<{emoji: string, reliability: number, suggestion: 'Green' | 'Blue'}[]>([]);
   const [currentTrial, setCurrentTrial] = useState<{boxes: {color: 'Green' | 'Blue', content: 'Gold' | 'Red'}[]} | null>(null);
@@ -36,8 +36,8 @@ export const Prediction: React.FC<PredictionProps> = ({
   const [goldCount, setGoldCount] = useState(0);
   const [redCount, setRedCount] = useState(0);
   const [trialCount, setPredictionTrialCount] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(20);
-  const [guessTimeRemaining, setGuessTimeRemaining] = useState(1.5);
+  const [timeRemaining, setTimeRemaining] = useState(30);
+  const [guessTimeRemaining, setGuessTimeRemaining] = useState(2.0);
   const [active, setActive] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [sessionScores, setSessionScores] = useState<number[]>([]);
@@ -118,8 +118,10 @@ export const Prediction: React.FC<PredictionProps> = ({
       trial,
       score: accuracy,
       raw_score: goldCountRef.current - redCountRef.current,
-      time: new Date().toISOString(),
+      time: Date.now(),
       time_limit: trialDuration,
+      guess_time_limit: guessTimeLimit,
+      total_trials: totalTrials,
       reliability_set: reliabilitySet,
       advisor_reliabilities: trialReliabilities
     });
@@ -303,7 +305,15 @@ export const Prediction: React.FC<PredictionProps> = ({
         exit={{ opacity: 0, y: -20 }}
         className="max-w-2xl mx-auto pt-20 px-6 pb-20"
       >
-        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12 relative">
+          <button 
+            onClick={onExit}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 font-bold uppercase tracking-widest text-xs group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Exit to Menu
+          </button>
+
           <div className="text-center">
             <h2 className="text-4xl font-black mb-4 tracking-tighter text-white uppercase">PREDICTION SETTINGS</h2>
             <p className="text-zinc-400">Configure the difficulty of the task.</p>
@@ -407,10 +417,10 @@ export const Prediction: React.FC<PredictionProps> = ({
         <div className="max-w-2xl text-center">
           <h2 className="text-6xl font-black mb-8 tracking-tighter text-white">PREDICTION</h2>
           <div className="space-y-6 text-xl text-zinc-400 mb-12">
-            <p>Predict which box contains the <span className="text-amber-500 font-bold">GOLD</span>.</p>
-            <p>Four advisors will give you suggestions. Some are more <span className="text-rose-500 font-bold">RELIABLE</span> than others.</p>
+            <p>Predict which box contains the <span className="text-amber-500 font-bold uppercase">Gold</span>.</p>
+            <p>Four advisors give suggestions. Your goal is to determine <span className="text-rose-500 font-bold uppercase tracking-tight">which of the advisors to trust</span>.</p>
+            <p>If you follow the most <span className="text-rose-500 font-bold">RELIABLE</span> advisor (the one with highest accuracy), you will score more points.</p>
             <p>Use <span className="text-white font-bold">LEFT</span> and <span className="text-white font-bold">RIGHT</span> arrow keys to select a box.</p>
-            <p>Try to find the gold as many times as possible within the time limit.</p>
             <p>You have <span className="text-white font-bold">{guessTimeLimit}s</span> per guess.</p>
           </div>
           <button

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, LogOut, Info, Keyboard } from 'lucide-react';
+import { ArrowRight, LogOut, Info, Keyboard, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Header } from '../components/Header';
 
@@ -21,10 +21,10 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
   onExit,
   saveResult
 }) => {
-  const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'GAME'>('SETTINGS');
+  const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'GAME' | 'POST_GAME'>('SETTINGS');
   const [trial, setTrial] = useState(1);
-  const [fingerTappingRepeats, setFingerTappingRepeats] = useState(5);
-  const [fingerTappingTimeLimit, setFingerTappingTimeLimit] = useState(30);
+  const [fingerTappingRepeats, setFingerTappingRepeats] = useState(10);
+  const [fingerTappingTimeLimit, setFingerTappingTimeLimit] = useState(20);
   const [fingerTappingSequenceLength, setFingerTappingSequenceLength] = useState(10);
   
   const [fingerTappingSequence, setFingerTappingSequence] = useState<(number | string)[]>([]);
@@ -32,12 +32,11 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
   const [fingerTappingCorrectCount, setFingerTappingCorrectCount] = useState(0);
   const [fingerTappingIncorrectCount, setFingerTappingIncorrectCount] = useState(0);
   const [fingerTappingActive, setFingerTappingActive] = useState(false);
-  const [fingerTappingTimeRemaining, setFingerTappingTimeRemaining] = useState(30);
+  const [fingerTappingTimeRemaining, setFingerTappingTimeRemaining] = useState(20);
   const [fingerTappingFeedback, setFingerTappingFeedback] = useState<(boolean | null)[]>([]);
   const [sessionScores, setSessionScores] = useState<number[]>([]);
   const [showRoundScore, setShowRoundScore] = useState(false);
   const [lastRoundScore, setLastRoundScore] = useState(0);
-  const [showTryAgain, setShowTryAgain] = useState(false);
 
   const fingerTappingCurrentIndexRef = useRef(0);
   const fingerTappingCorrectCountRef = useRef(0);
@@ -46,8 +45,14 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
 
   const generateSequence = useCallback(() => {
     const seq: (number | string)[] = [];
+    let lastNum: number | null = null;
     for (let i = 0; i < fingerTappingSequenceLength; i++) {
-      seq.push(Math.floor(Math.random() * 10));
+      let nextNum;
+      do {
+        nextNum = Math.floor(Math.random() * 10);
+      } while (nextNum === lastNum);
+      seq.push(nextNum);
+      lastNum = nextNum;
     }
     seq.push('Space');
     setFingerTappingSequence(seq);
@@ -60,6 +65,9 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
     setFingerTappingActive(false);
     
     const finalScore = fingerTappingCorrectCountRef.current - fingerTappingIncorrectCountRef.current;
+    const totalTaps = fingerTappingCorrectCountRef.current + fingerTappingIncorrectCountRef.current;
+    const timeSpentPerPress = totalTaps > 0 ? fingerTappingTimeLimit / totalTaps : 0;
+    
     setLastRoundScore(finalScore);
     setShowRoundScore(true);
     setSessionScores(prev => [...prev, finalScore]);
@@ -68,27 +76,40 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
       attempt: currentGameAttemptId,
       trial,
       score: finalScore,
+      correct: fingerTappingCorrectCountRef.current,
+      errors: fingerTappingIncorrectCountRef.current,
+      time_spent_per_button_press: timeSpentPerPress,
       time: fingerTappingTimeLimit * 1000,
       repetitions: fingerTappingRepeats,
       time_limit: fingerTappingTimeLimit,
       sequence_length: fingerTappingSequenceLength
     });
 
-    setTimeout(() => {
-      setShowRoundScore(false);
-      isFinishingRef.current = false;
-      if (trial < fingerTappingRepeats) {
-        setShowTryAgain(true);
-        setTimeout(() => {
-          setShowTryAgain(false);
-          setTrial(prev => prev + 1);
-          startRound();
-        }, 1000);
-      } else {
-        onFinish([...sessionScores, finalScore]);
-      }
-    }, 2000);
+    setGameState('POST_GAME');
   };
+
+  const handleContinue = useCallback(() => {
+    if (gameState !== 'POST_GAME') return;
+    
+    setShowRoundScore(false);
+    isFinishingRef.current = false;
+    if (trial < fingerTappingRepeats) {
+      setTrial(prev => prev + 1);
+      startRound();
+    } else {
+      onFinish([...sessionScores]);
+    }
+  }, [gameState, trial, fingerTappingRepeats, onFinish, sessionScores]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (gameState === 'POST_GAME' && e.key === 'Enter') {
+        handleContinue();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [gameState, handleContinue]);
 
   const startRound = () => {
     setFingerTappingCurrentIndex(0);
@@ -129,13 +150,6 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
         const newFeedback = [...fingerTappingFeedback];
         newFeedback[fingerTappingCurrentIndexRef.current] = true;
         setFingerTappingFeedback(newFeedback);
-        
-        fingerTappingCurrentIndexRef.current += 1;
-        if (fingerTappingCurrentIndexRef.current >= fingerTappingSequence.length) {
-          fingerTappingCurrentIndexRef.current = 0;
-          setFingerTappingFeedback(new Array(fingerTappingSequence.length).fill(null));
-        }
-        setFingerTappingCurrentIndex(fingerTappingCurrentIndexRef.current);
       } else {
         fingerTappingIncorrectCountRef.current += 1;
         setFingerTappingIncorrectCount(fingerTappingIncorrectCountRef.current);
@@ -144,12 +158,22 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
         newFeedback[fingerTappingCurrentIndexRef.current] = false;
         setFingerTappingFeedback(newFeedback);
         
+        const idx = fingerTappingCurrentIndexRef.current;
         setTimeout(() => {
-          const resetFeedback = [...newFeedback];
-          resetFeedback[fingerTappingCurrentIndexRef.current] = null;
-          setFingerTappingFeedback(resetFeedback);
+          setFingerTappingFeedback(prev => {
+            const next = [...prev];
+            next[idx] = null;
+            return next;
+          });
         }, 200);
       }
+
+      fingerTappingCurrentIndexRef.current += 1;
+      if (fingerTappingCurrentIndexRef.current >= fingerTappingSequence.length) {
+        fingerTappingCurrentIndexRef.current = 0;
+        setFingerTappingFeedback(new Array(fingerTappingSequence.length).fill(null));
+      }
+      setFingerTappingCurrentIndex(fingerTappingCurrentIndexRef.current);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -181,7 +205,15 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
         exit={{ opacity: 0, y: -20 }}
         className="max-w-2xl mx-auto pt-20 px-6 pb-20"
       >
-        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12 relative">
+          <button 
+            onClick={onExit}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 font-bold uppercase tracking-widest text-xs group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Exit to Menu
+          </button>
+
           <div className="text-center">
             <h2 className="text-4xl font-black mb-4 tracking-tighter text-white uppercase">FINGER TAPPING SETTINGS</h2>
             <p className="text-zinc-400">Configure the difficulty of the task.</p>
@@ -276,10 +308,10 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
         <div className="max-w-2xl text-center">
           <h2 className="text-6xl font-black mb-8 tracking-tighter text-white">FINGER TAPPING</h2>
           <div className="space-y-6 text-xl text-zinc-400 mb-12">
-            <p>Type the sequence shown on the screen as fast as possible.</p>
-            <p>Press <span className="text-purple-500 font-bold">SPACE</span> at the end of each sequence to loop.</p>
-            <p>Your score is <span className="text-white font-bold">Correct - Incorrect</span> taps.</p>
-            <p>The timer starts when you press the first key.</p>
+            <p>Each sequence consists of a series of numbers ending with a <span className="text-purple-500 font-bold uppercase">Spacebar</span> press.</p>
+            <p>The goal is to type the sequence (including space) as many times as possible within the time limit. The sequence repeats automatically.</p>
+            <p>Your score is <span className="text-white font-bold tracking-tight">Correct taps minus Errors</span>. Errors count negatively.</p>
+            <p><span className="text-purple-500 font-bold uppercase">Fast and Accurate</span> is the goal!</p>
           </div>
           <button
             onClick={() => startRound()}
@@ -306,25 +338,25 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
         totalTrials={fingerTappingRepeats}
         bestScore={bestScore}
         timeDisplay={`${fingerTappingTimeRemaining.toFixed(1)}s`}
-        instructions={!fingerTappingActive ? 'Press any key to start' : 'Type the sequence!'}
+        instructions={gameState === 'POST_GAME' ? 'Trial Complete - Press Enter' : (!fingerTappingActive ? 'Press any key to start' : 'Type the sequence!')}
         showInstructions={true}
         onExit={onExit}
       />
 
-      <div className="flex-1 w-full relative bg-black flex flex-col items-center justify-center p-8">
-        <div className="flex flex-wrap justify-center gap-4 max-w-4xl">
+      <div className="flex-1 w-full relative bg-black flex flex-col items-center justify-center p-8 overflow-hidden">
+        <div className="flex flex-nowrap justify-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar px-4 mb-8">
           {fingerTappingSequence.map((char, i) => (
             <motion.div
               key={i}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ 
-                scale: i === fingerTappingCurrentIndex ? 1.2 : 1,
+                scale: i === fingerTappingCurrentIndex ? 1.1 : 0.9,
                 opacity: 1,
                 backgroundColor: fingerTappingFeedback[i] === true ? '#10b981' : (fingerTappingFeedback[i] === false ? '#ef4444' : (i === fingerTappingCurrentIndex ? '#18181b' : '#09090b'))
               }}
               className={cn(
-                "w-20 h-24 rounded-2xl border-2 flex items-center justify-center text-4xl font-black transition-colors duration-100",
-                i === fingerTappingCurrentIndex ? "border-purple-500 text-white shadow-[0_0_30px_rgba(168,85,247,0.3)]" : "border-zinc-800 text-zinc-600"
+                "flex-none w-12 h-16 sm:w-16 sm:h-20 rounded-xl border-2 flex items-center justify-center text-2xl sm:text-3xl font-black transition-all duration-100",
+                i === fingerTappingCurrentIndex ? "border-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]" : "border-zinc-800 text-zinc-600"
               )}
             >
               {char === 'Space' ? '␣' : char}
@@ -346,33 +378,25 @@ export const FingerTapping: React.FC<FingerTappingProps> = ({
         <AnimatePresence>
           {showRoundScore && (
             <motion.div
-              initial={{ scale: 0.5, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 1.5, opacity: 0, y: -20 }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none z-[100]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center bg-zinc-950/80 backdrop-blur-md z-[100] pointer-events-auto"
             >
-              <div className="bg-purple-600 text-white px-12 py-6 rounded-[2rem] shadow-2xl border-4 border-white/20 backdrop-blur-xl">
+              <div className="bg-purple-600 text-white p-12 rounded-[3rem] shadow-2xl border-4 border-white/20 text-center">
                 <p className="text-xs uppercase tracking-widest font-black mb-1 opacity-70">Round Score</p>
-                <p className="text-7xl font-black tracking-tighter">{lastRoundScore}</p>
+                <p className="text-8xl font-black tracking-tighter mb-8">{lastRoundScore}</p>
+                <button
+                  onClick={handleContinue}
+                  className="bg-white text-purple-600 font-black px-12 py-6 rounded-2xl hover:bg-zinc-100 transition-all text-xl"
+                >
+                  Press ENTER to Continue
+                </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {showTryAgain && (
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 1.5, opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none z-[100]"
-            >
-              <div className="bg-white text-black px-12 py-6 rounded-[2rem] shadow-2xl border-4 border-black/10 backdrop-blur-xl">
-                <p className="text-4xl font-black tracking-tighter uppercase">Next Round!</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </motion.div>
   );

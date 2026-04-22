@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, LogOut, Info, Check, X, Clock } from 'lucide-react';
+import { ArrowRight, LogOut, Info, Check, X, Clock, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Header } from '../components/Header';
 
@@ -107,6 +107,7 @@ export const PatternMatching: React.FC<PatternMatchingProps> = ({
       total_trials: totalTrials,
       shifts_per_trial: shiftsPerTrial,
       streak_target_base: streakTargetBase,
+      guess_time_limit: guessTimeLimit,
       total_correct: correct,
       total_wrong: wrong,
       total_timeouts: timeouts
@@ -301,7 +302,15 @@ export const PatternMatching: React.FC<PatternMatchingProps> = ({
         exit={{ opacity: 0, y: -20 }}
         className="max-w-2xl mx-auto pt-20 px-6 pb-20"
       >
-        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12 relative">
+          <button 
+            onClick={onExit}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 font-bold uppercase tracking-widest text-xs group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Exit to Menu
+          </button>
+
           <div className="text-center">
             <h2 className="text-4xl font-black mb-4 tracking-tighter text-white uppercase">PATTERN MATCHING SETTINGS</h2>
             <p className="text-zinc-400">Configure the difficulty of the task.</p>
@@ -426,11 +435,10 @@ export const PatternMatching: React.FC<PatternMatchingProps> = ({
         <div className="max-w-2xl text-center">
           <h2 className="text-6xl font-black mb-8 tracking-tighter text-white">PATTERN MATCHING</h2>
           <div className="space-y-6 text-xl text-zinc-400 mb-12">
-            <p>Match the stimulus to one of the four reference patterns based on a <span className="text-indigo-500 font-bold">HIDDEN RULE</span>.</p>
-            <p>The rule can be <span className="text-white font-bold">NUMBER</span>, <span className="text-white font-bold">COLOR</span>, or <span className="text-white font-bold">SHAPE</span>.</p>
-            <p>Use keys <span className="text-white font-bold">1, 2, 3, 4</span> to select the corresponding reference pattern.</p>
-            <p>Use the feedback to deduce the current rule. After a few correct matches (or 20 total guesses), the rule will <span className="text-indigo-500 font-bold">SHIFT</span>.</p>
-            <p>You have <span className="text-white font-bold">{guessTimeLimit}s</span> per guess.</p>
+            <p>Determine which feature of the stimulus (<span className="text-white font-bold">Number, Color, or Shape</span>) is the current <span className="text-indigo-500 font-bold uppercase">Hidden Rule</span>.</p>
+            <p>Press the key <span className="text-white font-bold">(1-4)</span> for the top card that match the stimulus on that specific feature.</p>
+            <p>If your match is correct, you get a point. After several correct answers in a row, the <span className="text-indigo-500 font-bold uppercase tracking-tighter">Rule Changes</span>.</p>
+            <p>Use the feedback to deduce the new rule as quickly as possible!</p>
           </div>
           <button
             onClick={() => {

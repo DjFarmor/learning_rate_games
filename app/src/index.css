@@ -10,3 +10,13 @@
     40%, 60% { transform: translate3d(4px, 0, 0); }
   }
 }
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

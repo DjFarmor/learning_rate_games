@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, LogOut, Info } from 'lucide-react';
+import { ArrowRight, LogOut, Info, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Header } from '../components/Header';
 import { Dot } from '../types/game';
@@ -28,7 +28,7 @@ export const Tracking: React.FC<TrackingProps> = ({
   const [avgDriftSpeed, setAvgDriftSpeed] = useState(6); // cm/s
   const [driftVariance, setDriftVariance] = useState(30); // %
   const [circleSize, setCircleSize] = useState(2); // cm
-  const [trialTime, setTrialTime] = useState(5); // seconds
+  const [trialTime, setTrialTime] = useState(8); // seconds
   
   const CM_TO_PERCENT = 3.33; // Assuming 30cm screen width
   
@@ -39,7 +39,7 @@ export const Tracking: React.FC<TrackingProps> = ({
   const [sessionScores, setSessionScores] = useState<number[]>([]);
   const [showRoundScore, setShowRoundScore] = useState(false);
   const [lastRoundScore, setLastRoundScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(5);
+  const [timeLeft, setTimeLeft] = useState(8);
   const [bgImage, setBgImage] = useState('');
   const [sessionSeed] = useState(() => Math.random().toString(36).substring(7));
 
@@ -122,8 +122,8 @@ export const Tracking: React.FC<TrackingProps> = ({
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
     if (!trackingActive) {
-      const distToBall = Math.sqrt(Math.pow(x - ballPos.x, 2) + Math.pow(y - ballPos.y, 2));
-      if (distToBall < 10) {
+      const distToCircle = Math.sqrt(Math.pow(x - circlePos.x, 2) + Math.pow(y - circlePos.y, 2));
+      if (distToCircle < 10) {
         setTrackingActive(true);
         startTimeRef.current = 0;
         containerRef.current?.requestPointerLock();
@@ -235,7 +235,15 @@ export const Tracking: React.FC<TrackingProps> = ({
         exit={{ opacity: 0, y: -20 }}
         className="max-w-2xl mx-auto pt-20 px-6 pb-20"
       >
-        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 p-12 rounded-[3rem] space-y-12 relative">
+          <button 
+            onClick={onExit}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 font-bold uppercase tracking-widest text-xs group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Exit to Menu
+          </button>
+
           <div className="text-center">
             <h2 className="text-4xl font-black mb-4 tracking-tighter">TRACKING SETTINGS</h2>
             <p className="text-zinc-400">Configure the difficulty of the task.</p>
@@ -386,9 +394,9 @@ export const Tracking: React.FC<TrackingProps> = ({
         <div className="max-w-2xl text-center">
           <h2 className="text-6xl font-black mb-8 tracking-tighter">TRACKING</h2>
           <div className="space-y-6 text-xl text-zinc-400 mb-12">
-            <p>Follow the moving ball with your cursor as accurately as possible.</p>
-            <p>Keep your cursor inside the <span className="text-amber-500 font-bold">CIRCLE</span> to score points.</p>
-            <p>The game starts when you hover over the <span className="text-white font-bold">BALL</span>.</p>
+            <p>Click the <span className="text-white font-bold uppercase underline decoration-amber-500 underline-offset-4">Circle</span> to start the trial.</p>
+            <p>Keep the moving ball <span className="text-white font-bold italic tracking-tight">inside the circle</span> at all times by moving the circle with your cursor.</p>
+            <p>The ball moves in random directions, but this <span className="text-amber-500 font-bold uppercase">pattern remains identical</span> across trials.</p>
           </div>
           <button
             onClick={() => startRound()}
@@ -415,7 +423,7 @@ export const Tracking: React.FC<TrackingProps> = ({
         totalTrials={trackingRepeats}
         bestScore={bestScore}
         timeDisplay={trackingActive ? `${timeLeft.toFixed(1)}s` : 'Ready'}
-        instructions={showRoundScore ? (trial < trackingRepeats ? 'Press any key or click to continue' : 'Press any key or click to finish') : (!trackingActive ? 'Click the ball to start' : (isBallInside ? 'TRACKING...' : 'OUT OF RANGE!'))}
+        instructions={showRoundScore ? (trial < trackingRepeats ? 'Press any key or click to continue' : 'Press any key or click to finish') : (!trackingActive ? 'Click the circle to start' : (isBallInside ? 'TRACKING...' : 'OUT OF RANGE!'))}
         showInstructions={true}
         onExit={onExit}
       />
@@ -440,7 +448,7 @@ export const Tracking: React.FC<TrackingProps> = ({
 
         <motion.div
           className={cn(
-            "absolute rounded-full border-4 -translate-x-1/2 -translate-y-1/2 z-10 aspect-square",
+            "absolute rounded-full border-4 -translate-x-1/2 -translate-y-1/2 z-10 aspect-square box-border",
             isBallInside ? "border-amber-500 bg-amber-500/20" : "border-red-500 bg-red-500/20"
           )}
           style={{ 
