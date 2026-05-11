@@ -22,8 +22,9 @@ export const Tracking: React.FC<TrackingProps> = ({
   onExit,
   saveResult
 }) => {
-  const [gameState, setGameState] = useState<'SETTINGS' | 'INSTRUCTIONS' | 'GAME'>('SETTINGS');
+  const [gameState, setGameState] = useState<'SETTINGS' | 'CONDITION' | 'INSTRUCTIONS' | 'GAME'>('SETTINGS');
   const [trial, setTrial] = useState(1);
+  const [condition, setCondition] = useState('test');
   const [trackingRepeats, setTrackingRepeats] = useState(10);
   const [avgDriftSpeed, setAvgDriftSpeed] = useState(6); // cm/s
   const [driftVariance, setDriftVariance] = useState(30); // %
@@ -71,6 +72,7 @@ export const Tracking: React.FC<TrackingProps> = ({
     await saveResult('Tracking', {
       attempt: currentGameAttemptId,
       trial,
+      condition,
       score: roundScore,
       time: trialTime * 1000,
       repetitions: trackingRepeats,
@@ -353,7 +355,7 @@ export const Tracking: React.FC<TrackingProps> = ({
 
           <button
             onClick={() => {
-              setGameState('INSTRUCTIONS');
+              setGameState('CONDITION');
               // Generate deterministic drift sequence for the session
               const sequence = [];
               let cumulativeTime = 0;
@@ -376,6 +378,51 @@ export const Tracking: React.FC<TrackingProps> = ({
           >
             Continue to Instructions
             <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (gameState === 'CONDITION') {
+    return (
+      <motion.div
+        key="tr-condition"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 1.1 }}
+        className="fixed inset-0 z-[100] bg-zinc-950 flex items-center justify-center p-6"
+      >
+        <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 p-12 rounded-[3rem] space-y-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Study Condition</h2>
+            <p className="text-zinc-500 text-sm">Please specify the study condition before starting.</p>
+          </div>
+          
+          <div className="space-y-4">
+            <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Condition Name</label>
+            <input
+              type="text"
+              value={condition}
+              onChange={(e) => setCondition(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-4 focus:outline-none focus:border-amber-500 transition-colors text-xl font-bold text-center"
+              placeholder="e.g. test, control, experimental"
+            />
+          </div>
+
+          <button
+            onClick={() => setGameState('INSTRUCTIONS')}
+            className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 text-lg group"
+          >
+            Start Game
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <button
+            onClick={() => setGameState('SETTINGS')}
+            className="w-full text-zinc-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest"
+          >
+            Back to Settings
           </button>
         </div>
       </motion.div>

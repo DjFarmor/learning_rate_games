@@ -37,32 +37,32 @@ const LOGIN_CSV = path.join(RESULTS_DIR, 'login.csv');
 const GAME_CONFIG: Record<string, { path: string, headers: string }> = {
   'Dot Memory': {
     path: DOT_MEMORY_CSV,
-    headers: 'nickname,date,attempt,trial,score,time,repetitions,dots,countdown_duration,presentation_time,solution_time,trial_time_limit,background_type,grid_size,settings_code\n'
+    headers: 'nickname,date,condition,attempt,trial,score,time,repetitions,dots,countdown_duration,presentation_time,solution_time,trial_time_limit,background_type,grid_size,settings_code\n'
   },
   'Path Tracing': {
     path: PATH_TRACING_CSV,
-    headers: 'nickname,date,attempt,trial,score,time,repetitions,drift_force,circle_size,time_limit,settings_code\n'
+    headers: 'nickname,date,condition,attempt,trial,score,time,repetitions,drift_force,circle_size,time_limit,settings_code\n'
   },
   'Tracking': {
     path: TRACKING_CSV,
-    headers: 'nickname,date,attempt,trial,score,time,repetitions,avg_drift_speed,drift_variance,circle_size,trial_time,settings_code\n'
+    headers: 'nickname,date,condition,attempt,trial,score,time,repetitions,avg_drift_speed,drift_variance,circle_size,trial_time,settings_code\n'
   },
   'Finger Tapping': {
     path: FINGER_TAPPING_CSV,
-    headers: 'nickname,date,attempt,trial,score,time,repetitions,time_limit,sequence_length,settings_code\n'
+    headers: 'nickname,date,condition,attempt,trial,score,time,repetitions,time_limit,sequence_length,settings_code\n'
   },
   'Prediction': {
     path: PREDICTION_CSV,
-    headers: 'nickname,date,attempt,trial,score,time,time_limit,reliability_set,raw_score,settings_code\n'
+    headers: 'nickname,date,condition,attempt,trial,score,time,time_limit,reliability_set,raw_score,settings_code\n'
   },
   'Pattern Matching': {
     path: PATTERN_MATCHING_CSV,
-    headers: 'nickname,date,attempt,trial,score,time,total_trials,shifts_per_trial,streak_range,total_correct,total_wrong,settings_code\n'
+    headers: 'nickname,date,condition,attempt,trial,score,time,total_trials,shifts_per_trial,streak_range,total_correct,total_wrong,settings_code\n'
   }
 };
 
 const QUESTIONNAIRE_RESULTS_PATH = path.join(RESULTS_DIR, 'results_questionnaires.csv');
-const QUESTIONNAIRE_RESULTS_HEADERS = 'nickname,date,timestamp,questionnaire_id,questionnaire_title,results_json\n';
+const QUESTIONNAIRE_RESULTS_HEADERS = 'nickname,date,condition,timestamp,questionnaire_id,questionnaire_title,results_json\n';
 
 const LOGIN_HEADERS = 'nickname,password\n';
 
@@ -202,7 +202,7 @@ async function startServer() {
 
   app.post('/api/questionnaire/:id/results', (req, res) => {
     const { id } = req.params;
-    const { nickname, results } = req.body;
+    const { nickname, condition, results } = req.body;
     const resultsPath = path.join(QUESTIONNAIRES_DIR, `results_quest_${id}.csv`);
 
     try {
@@ -221,14 +221,14 @@ async function startServer() {
 
       // 1. Save to individual questionnaire result file (legacy/detailed)
       if (!fs.existsSync(resultsPath)) {
-        const headers = ['nickname', 'date', 'timestamp', 'questionnaire_id', 'questionnaire_title', ...results.map((r: any, i: number) => `q${i+1}_answer`)];
+        const headers = ['nickname', 'date', 'condition', 'timestamp', 'questionnaire_id', 'questionnaire_title', ...results.map((r: any, i: number) => `q${i+1}_answer`)];
         fs.writeFileSync(resultsPath, stringify([headers]));
       }
-      const row = [nickname, dateTag, now.getTime(), id, title, ...results.map((r: any) => r.answer)];
+      const row = [nickname, dateTag, condition, now.getTime(), id, title, ...results.map((r: any) => r.answer)];
       fs.appendFileSync(resultsPath, stringify([row]));
 
       // 2. Also save to the master questionnaire results file
-      const masterRow = [nickname, dateTag, now.getTime(), id, title, JSON.stringify(results)];
+      const masterRow = [nickname, dateTag, condition, now.getTime(), id, title, JSON.stringify(results)];
       fs.appendFileSync(QUESTIONNAIRE_RESULTS_PATH, stringify([masterRow]));
 
       res.json({ success: true });
@@ -434,7 +434,7 @@ async function startServer() {
 
   app.post('/api/results', (req, res) => {
     const { 
-      game, nickname, attempt, trial, score, time,
+      game, nickname, condition, attempt, trial, score, time,
       repetitions, dots, countdown_duration, presentation_time, solution_time,
       drift_force, circle_size, time_limit, shifts, speed_range, duration_variance,
       sequence_length, reliability_set, raw_score, total_trials, shifts_per_trial,
@@ -463,31 +463,31 @@ async function startServer() {
         const bg = req.body.background_type || 'PICSUM';
         const gs = req.body.grid_size || 0;
         settingsCode = `rep${repetitions}dot${dots}cnt${cd}pre${pt}sol${st}ttl${ttl}bg${bg}gs${gs}`;
-        row = [nickname, dateTag, attempt, trial, score, time, repetitions, dots, cd, pt, st, ttl, bg, gs, settingsCode];
+        row = [nickname, dateTag, condition, attempt, trial, score, time, repetitions, dots, cd, pt, st, ttl, bg, gs, settingsCode];
       } else if (game === 'Path Tracing') {
         const tl = (time_limit || 0) * 1000;
         settingsCode = `rep${repetitions}dri${drift_force}cir${circle_size}tim${tl}`;
-        row = [nickname, dateTag, attempt, trial, score, time, repetitions, drift_force, circle_size, tl, settingsCode];
+        row = [nickname, dateTag, condition, attempt, trial, score, time, repetitions, drift_force, circle_size, tl, settingsCode];
       } else if (game === 'Tracking') {
         const ads = req.body.avg_drift_speed || 0;
         const dv = req.body.drift_variance || 0;
         const cs = circle_size || 0;
         const tt = (req.body.trial_time || 0) * 1000;
         settingsCode = `rep${repetitions}ads${ads}dv${dv}cs${cs}tt${tt}`;
-        row = [nickname, dateTag, attempt, trial, score, time, repetitions, ads, dv, cs, tt, settingsCode];
+        row = [nickname, dateTag, condition, attempt, trial, score, time, repetitions, ads, dv, cs, tt, settingsCode];
       } else if (game === 'Finger Tapping') {
         const tl = (time_limit || 0) * 1000;
         settingsCode = `rep${repetitions}tim${tl}seq${sequence_length}`;
-        row = [nickname, dateTag, attempt, trial, score, time, repetitions, tl, sequence_length, settingsCode];
+        row = [nickname, dateTag, condition, attempt, trial, score, time, repetitions, tl, sequence_length, settingsCode];
       } else if (game === 'Prediction') {
         const tl = (time_limit || 0) * 1000;
         const gtl = (req.body.guess_time_limit || 1.5) * 1000;
         settingsCode = `rep${req.body.total_trials}tim${tl}gue${gtl}rel${reliability_set}`;
-        row = [nickname, dateTag, attempt, trial, score, time, tl, reliability_set, raw_score, settingsCode];
+        row = [nickname, dateTag, condition, attempt, trial, score, time, tl, reliability_set, raw_score, settingsCode];
       } else if (game === 'Pattern Matching') {
         const gtl = (req.body.guess_time_limit || 3) * 1000;
         settingsCode = `tri${total_trials}shi${shifts_per_trial}str${streak_target_base || streak_range}gue${gtl}`;
-        row = [nickname, dateTag, attempt, trial, score, time, total_trials, shifts_per_trial, streak_target_base || streak_range, total_correct, total_wrong, settingsCode];
+        row = [nickname, dateTag, condition, attempt, trial, score, time, total_trials, shifts_per_trial, streak_target_base || streak_range, total_correct, total_wrong, settingsCode];
       }
 
       fs.appendFileSync(config.path, stringify([row]));
