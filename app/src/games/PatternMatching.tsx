@@ -24,8 +24,8 @@ export const PatternMatching: React.FC<PatternMatchingProps> = ({
   const [gameState, setGameState] = useState<'SETTINGS' | 'CONDITION' | 'INSTRUCTIONS' | 'WAITING' | 'COUNTDOWN' | 'GAME'>('SETTINGS');
   const [trial, setTrial] = useState(1);
   const [condition, setCondition] = useState('test');
-  const [totalTrials, setTotalTrials] = useState(6);
-  const [shiftsPerTrial, setShiftsPerTrial] = useState(3);
+  const [totalTrials, setTotalTrials] = useState(5);
+  const [shiftsPerTrial, setShiftsPerTrial] = useState(4);
   const [reliability, setReliability] = useState(100);
   const [guessTimeLimit, setGuessTimeLimit] = useState(3);
   const [streakTargetBase, setStreakTargetBase] = useState(3);
@@ -322,8 +322,8 @@ export const PatternMatching: React.FC<PatternMatchingProps> = ({
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-4">
                 <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Trials</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[2, 4, 6, 8, 10].map(n => (
+                <div className="grid grid-cols-4 gap-2">
+                  {[3, 4, 5, 6].map(n => (
                     <button
                       key={n}
                       onClick={() => setTotalTrials(n)}
@@ -340,7 +340,7 @@ export const PatternMatching: React.FC<PatternMatchingProps> = ({
               <div className="space-y-4">
                 <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Shifts Per Trial</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {[2, 3, 4].map(n => (
+                  {[3, 4, 5].map(n => (
                     <button
                       key={n}
                       onClick={() => setShiftsPerTrial(n)}

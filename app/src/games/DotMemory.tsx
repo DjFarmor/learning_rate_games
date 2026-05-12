@@ -26,12 +26,12 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
   const [trial, setTrial] = useState(1);
   const [condition, setCondition] = useState('test');
   const [maxTrials, setMaxTrials] = useState(10);
-  const [dotCount, setDotCount] = useState(6);
+  const [dotCount, setDotCount] = useState(7);
   const [presentationTime, setPresentationTime] = useState(3);
   const [solutionTime, setSolutionTime] = useState(3);
   const [dotMemoryGridSize, setDotMemoryGridSize] = useState(0);
   const [backgroundType, setBackgroundType] = useState<'PICSUM' | 'GREY' | 'LOCAL'>('LOCAL');
-  const [trialTimeLimit, setTrialTimeLimit] = useState(8);
+  const [trialTimeLimit, setTrialTimeLimit] = useState(9);
   
   const [dots, setDots] = useState<Dot[]>([]);
   const [placedDots, setPlacedDots] = useState<Dot[]>([]);
@@ -45,7 +45,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
   const [showTryAgain, setShowTryAgain] = useState(false);
   const [showDotMemoryInstructions, setShowDotMemoryInstructions] = useState(true);
   const [startTime, setStartTime] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(8);
+  const [timeLeft, setTimeLeft] = useState(9);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const placedDotsRef = useRef<Dot[]>([]);
@@ -295,7 +295,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
               <div className="space-y-4">
                 <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Dot Count</label>
                 <div className="grid grid-cols-5 gap-2">
-                  {[3, 4, 5, 6, 8].map(n => (
+                  {[5, 6, 7, 8, 9].map(n => (
                     <button
                       key={n}
                       onClick={() => setDotCount(n)}
@@ -362,13 +362,13 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
                       key={type}
                       onClick={() => setBackgroundType(type)}
                       className={cn(
-                        "py-3 rounded-xl font-bold transition-all border text-[10px]",
+                        "py-3 rounded-xl font-bold transition-all border text-xs",
                         backgroundType === type 
                           ? "bg-emerald-600 border-emerald-500 text-white" 
                           : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700"
                       )}
                     >
-                      {type}
+                      {type === 'LOCAL' ? 'DEFAULT' : type}
                     </button>
                   ))}
                 </div>
@@ -376,13 +376,13 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
 
               <div className="space-y-4">
                 <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Trial Time Limit</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[0, 4, 6, 8, 10].map(n => (
+                <div className="grid grid-cols-4 gap-2">
+                  {[0, 5, 7, 9].map(n => (
                     <button
                       key={n}
                       onClick={() => setTrialTimeLimit(n)}
                       className={cn(
-                        "py-3 rounded-xl font-bold transition-all border text-[10px]",
+                        "py-3 rounded-xl font-bold transition-all border text-xs",
                         trialTimeLimit === n 
                           ? "bg-emerald-600 border-emerald-500 text-white" 
                           : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700"
@@ -518,7 +518,7 @@ export const DotMemory: React.FC<DotMemoryProps> = ({
         <div 
           className={cn(
             "absolute inset-0 transition-all duration-700",
-            backgroundType === 'GREY' ? "bg-zinc-800" : (backgroundType === 'LOCAL' ? "bg-zinc-900" : "opacity-40 grayscale")
+            backgroundType === 'GREY' ? "bg-zinc-800" : (backgroundType === 'LOCAL' ? "" : "opacity-40 grayscale")
           )}
           style={backgroundType !== 'GREY' ? { 
             backgroundImage: `url(${backgroundType === 'LOCAL' ? '/images/chaotic_pattern.png' : bgImage})`,

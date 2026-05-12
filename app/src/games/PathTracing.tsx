@@ -54,7 +54,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
   const [paintedPathD, setPaintedPathD] = useState('');
 
   const lastMousePos = useRef<Dot>({ x: 0, y: 0 });
-  const driftOffsetRef = useRef<Dot>({ x: 0, y: 0 });
+  const mouseDeltaRef = useRef<Dot>({ x: 0, y: 0 });
   const driftSequenceRef = useRef<{x: number, y: number, duration: number, forceMult: number}[]>([]);
   const sessionScoresRef = useRef<number[]>([]);
   const visitedPointsRef = useRef<Set<number>>(new Set());
@@ -110,7 +110,9 @@ export const PathTracing: React.FC<PathTracingProps> = ({
     setShowRoundScore(true);
     sessionScoresRef.current.push(roundScore);
     setSessionScores([...sessionScoresRef.current]);
-    document.exitPointerLock();
+    if (document.pointerLockElement === containerRef.current) {
+      document.exitPointerLock();
+    }
 
     await saveResult('Path Tracing', {
       attempt: currentGameAttemptId,
@@ -135,8 +137,8 @@ export const PathTracing: React.FC<PathTracingProps> = ({
     isFinishingRef.current = false;
     setCirclePos(activePath[0]);
     circlePosRef.current = activePath[0];
-    driftOffsetRef.current = { x: 0, y: 0 };
     lastMousePos.current = activePath[0];
+    mouseDeltaRef.current = { x: 0, y: 0 };
     setTraceHistory([]);
     setFullTraceHistory([]);
     setTraceProgress(0);
@@ -212,15 +214,8 @@ export const PathTracing: React.FC<PathTracingProps> = ({
       const dx = (e.movementX / rect.width) * 100;
       const dy = (e.movementY / rect.height) * 100;
       
-      lastMousePos.current = {
-        x: Math.max(0, Math.min(100, lastMousePos.current.x + dx)),
-        y: Math.max(0, Math.min(100, lastMousePos.current.y + dy))
-      };
-    } else {
-      // Use absolute position when not locked
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      lastMousePos.current = { x, y };
+      mouseDeltaRef.current.x += dx;
+      mouseDeltaRef.current.y += dy;
     }
   };
 
@@ -252,17 +247,12 @@ export const PathTracing: React.FC<PathTracingProps> = ({
       const driftDir = sequence[driftIndexRef.current % sequence.length];
       const driftPx = driftForce * CM_TO_PERCENT * driftDir.forceMult;
       
-      driftOffsetRef.current = {
-        x: driftOffsetRef.current.x + driftDir.x * driftPx * dt,
-        y: driftOffsetRef.current.y + driftDir.y * driftPx * dt
-      };
-
-      // Calculate new position
-      const targetX = lastMousePos.current.x + driftOffsetRef.current.x;
-      const targetY = lastMousePos.current.y + driftOffsetRef.current.y;
+      // Calculate new position using physics-style integration: currentPos + mouseDelta + drift
+      const newX = Math.max(0, Math.min(100, circlePosRef.current.x + mouseDeltaRef.current.x + driftDir.x * driftPx * dt));
+      const newY = Math.max(0, Math.min(100, circlePosRef.current.y + mouseDeltaRef.current.y + driftDir.y * driftPx * dt));
       
-      const newX = circlePosRef.current.x + (targetX - circlePosRef.current.x) * 0.2;
-      const newY = circlePosRef.current.y + (targetY - circlePosRef.current.y) * 0.2;
+      // Reset mouse delta after applying
+      mouseDeltaRef.current = { x: 0, y: 0 };
       circlePosRef.current = { x: newX, y: newY };
 
       // Check if the path is within the circle
@@ -577,7 +567,7 @@ export const PathTracing: React.FC<PathTracingProps> = ({
           <path
             d={`M ${pathPoints.map(p => `${p.x} ${p.y}`).join(' L ')}`}
             fill="none"
-            stroke="#333"
+            stroke="#fff"
             strokeWidth="0.2"
             strokeLinecap="round"
             strokeLinejoin="round"
